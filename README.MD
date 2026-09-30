@@ -538,78 +538,73 @@ Para Pokémon com dois tipos, **multiplique** os fatores dos dois tipos. O helpe
 |`super-contest-effect`|`appeal`, `flavor_text_entries[]`, `moves[]`|Efeito em super concursos|
 
 ---
+# 6. Estruturas de dados no Flutter
 
-## 6. Estruturas de dados no Flutter
+Esta seção mapeia as classes Dart necessárias para consumir a PokéAPI, organizadas conforme o fluxo de telas do app.
 
-### 6.1 Mapa endpoint → classe Dart
+---
 
-| Endpoint                  | Classe raiz                                                            | Principais classes aninhadas                                                                                                             |
-| ------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `pokemon`                 | `Pokemon`                                                              | `PokemonAbility`, `PokemonType`, `PokemonStat`, `PokemonMove`, `PokemonMoveVersion`, `PokemonHeldItem`, `PokemonSprites`, `PokemonCries` |
-| `pokemon/{id}/encounters` | `List<LocationAreaEncounter>`                                          | `VersionEncounterDetail`, `Encounter`                                                                                                    |
-| `pokemon-species`         | `PokemonSpecies`                                                       | `Genus`, `PokemonSpeciesDexEntry`, `PalParkEncounterArea`, `PokemonSpeciesVariety`                                                       |
-| `evolution-chain`         | `EvolutionChain`                                                       | `ChainLink`, `EvolutionDetail`, `EvolutionConditionExpression`                                                                           |
-| `type`                    | `PokeType`                                                             | `TypeRelations`, `TypePokemon`                                                                                                           |
-| `move`                    | `Move`                                                                 | `MoveMetaData`, `MoveStatChange`, `PastMoveStatValues`, `ContestComboSets`, `ContestComboDetail`                                         |
-| `ability`                 | `Ability`                                                              | `AbilityEffectChange`, `AbilityPokemon`                                                                                                  |
-| `stat`                    | `Stat`                                                                 | `MoveStatAffectSets`, `MoveStatAffect`, `NatureStatAffectSets`                                                                           |
-| `nature`                  | `Nature`                                                               | `NatureStatChange`, `MoveBattleStylePreference`                                                                                          |
-| demais endpoints          | `Berry`, `Item`, `Generation`, `Region`, `Location`, `LocationArea`... | ver o nome do endpoint na tabela da seção 4                                                                                              |
+## 6.1 Tela de lista
 
-O nome `PokeType` evita conflito com o `Type` do `dart:core`.
+**Endpoint:** `/pokemon?limit&offset`
+**Retorna:** `name`, `url` (o **ID** está no final da `url`).
 
-### 6.3 Tipos auxiliares
-
-|Classe / função|Para que serve|
+| Classe Dart | Papel |
 |---|---|
-|`NamedApiResource`, `ApiResource`|Referências; têm o getter `id` (extraído da URL)|
-|`ResourceList<T>`|Lista paginada (`count`, `next`, `previous`, `results`, `hasNext`)|
-|`Name`, `Description`, `Effect`, `VerboseEffect`, `FlavorText`, `Genus`|Textos por idioma; todos implementam `Localized`|
-|`list.localized()`|Primeiro item em pt-br, senão en, senão `null`|
-|`list.localizedLast()`|Último item em pt-br, senão en (ideal para `flavor_text_entries`)|
-|`FlavorText.clean`, `cleanFlavor()`, `cleanEffect()`|Limpam quebras de linha e marcações|
-|`idFromUrl(url)`|Extrai o ID do final da URL|
-|`pokemonSpriteUrl(id)`|Monta a URL do sprite por ID|
-|`damageTakenMultipliers(types)`|Fraquezas/resistências para 1–2 tipos|
+| `ResourceList<NamedApiResource>` | Envelope paginado (`count`, `next`, `previous`, `results`, `hasNext`) |
+| `NamedApiResource` | Cada item da lista; getter `id` extraído da URL |
 
-### 6.4 Atalhos prontos nos modelos
+**Sprite por ID** (não é a API — caixa tracejada):
 
-|Onde|Membro|Retorna|
-|---|---|---|
-|`Pokemon`|`heightMeters`, `weightKg`|Altura em m, peso em kg|
-|`Pokemon`|`baseStat('speed')`, `baseStatTotal`|Stat base e soma dos stats|
-|`Pokemon`|`imageUrl`|Arte oficial → sprite → URL por ID|
-|`PokemonSpecies`|`displayName()`, `description()`, `genus()`|Nome, descrição e categoria traduzidos|
-|`PokemonSpecies`|`femalePercent`, `malePercent`|Proporção de gênero (`null` se sem gênero)|
-|`PokeType` / `Ability` / `Move`|`displayName()`|Nome traduzido|
-|`Ability` / `Move`|`shortEffect()`|Efeito curto traduzido e limpo|
-|`ChainLink`|`flatten()`|Lista plana da árvore de evolução|
-|`EvolutionDetail`|`summary`|Texto curto da condição ("Nível 16", "Item: fire-stone")|
-
-### 6.5 Exemplos de uso
-
-**Tela de detalhe (nome, descrição, stats, tipos):**
-
-```dart
-final client = PokeApiClient();
-final d = await client.pokemonDetail(25); // pokemon + species + evolution chain
-
-final nome = d.species.displayName();          // "Pikachu"
-final texto = d.species.description();         // pt-br ou en
-final altura = d.pokemon.heightMeters;         // 0.4
-final hp = d.pokemon.baseStat('hp');
-final tipos = d.pokemon.types.map((t) => t.type.name).toList();
+```
+sprites/pokemon/{id}.png
 ```
 
-**Fraquezas (chamadas aos tipos com cache):**
+```dart
+final page = await client.listPokemon(limit: 30, offset: 0);
+for (final r in page.results) {
+  final id  = r.id;                  // extraído da URL
+  final img = pokemonSpriteUrl(id);  // sem bater na API
+}
+```
+
+**URL completa do sprite:**
+```
+https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png
+```
+
+---
+
+## 6.2 Tela de detalhe
+
+### `/pokemon/{id}` — tipos, stats, sprites
+
+| Classe raiz | Classes aninhadas |
+|---|---|
+| `Pokemon` | `PokemonType`, `PokemonStat`, `PokemonAbility`, `PokemonMove`, `PokemonMoveVersion`, `PokemonHeldItem`, `PokemonSprites`, `PokemonCries` |
+
+### `/pokemon-species/{id}` — nomes pt-br, descrição
+
+| Classe raiz | Classes aninhadas |
+|---|---|
+| `PokemonSpecies` | `Genus`, `FlavorText`, `Name`, `PokemonSpeciesDexEntry`, `PalParkEncounterArea`, `PokemonSpeciesVariety` |
+
+### `/evolution-chain/{id}` — árvore de evolução
+
+| Classe raiz | Classes aninhadas |
+|---|---|
+| `EvolutionChain` | `ChainLink` (recursivo), `EvolutionDetail`, `EvolutionConditionExpression` |
+
+**Chamada combinada (as três em uma):**
 
 ```dart
-final types = await Future.wait(
-  d.pokemon.types.map((t) => client.type(t.type.name)),
-);
-final mult = damageTakenMultipliers(types);
-final fraquezas = mult.entries.where((e) => e.value >= 2).toList();
-final imunidades = mult.entries.where((e) => e.value == 0).toList();
+final d = await client.pokemonDetail(25); // pokemon + species + evolution chain
+
+final nome   = d.species.displayName();       // "Pikachu"
+final texto  = d.species.description();       // pt-br ou en
+final altura = d.pokemon.heightMeters;        // 0.4
+final hp     = d.pokemon.baseStat('hp');
+final tipos  = d.pokemon.types.map((t) => t.type.name).toList();
 ```
 
 **Árvore de evolução:**
@@ -625,17 +620,92 @@ void walk(ChainLink node, [int depth = 0]) {
 walk(d.evolution!.chain);
 ```
 
-**Lista paginada com ID e sprite (sem chamadas extras por item):**
+---
+
+## 6.3 Tela de extras
+
+### `/type/{id}` — fraquezas, nome pt-br
+
+| Classe raiz | Classes aninhadas |
+|---|---|
+| `PokeType` | `TypeRelations`, `TypePokemon`, `Name` |
+
+> `PokeType` (em vez de `Type`) evita conflito com `Type` do `dart:core`.
 
 ```dart
-final page = await client.listPokemon(limit: 30, offset: 0);
-for (final r in page.results) {
-  final id = r.id;                  // extraído da URL
-  final img = pokemonSpriteUrl(id); // sprite pelo repositório
-}
-// próxima página: page.hasNext -> listPokemon(offset: 30)
+final types = await Future.wait(
+  d.pokemon.types.map((t) => client.type(t.type.name)),
+);
+final mult = damageTakenMultipliers(types);
+final fraquezas = mult.entries.where((e) => e.value >= 2).toList();
+final imunidades = mult.entries.where((e) => e.value == 0).toList();
 ```
 
+### `/move/{id}` — poder, pp, nome pt-br
+
+| Classe raiz | Classes aninhadas |
+|---|---|
+| `Move` | `MoveMetaData`, `MoveStatChange`, `PastMoveStatValues`, `ContestComboSets`, `ContestComboDetail`, `MachineVersionDetail`, `VerboseEffect`, `Name` |
+
+### `/ability/{id}` — nome pt-br, efeito
+
+| Classe raiz | Classes aninhadas |
+|---|---|
+| `Ability` | `AbilityEffectChange`, `AbilityPokemon`, `VerboseEffect`, `Name` |
+
+---
+
+## 6.4 Tipos auxiliares (compartilhados entre as telas)
+
+| Classe / função | Para que serve |
+|---|---|
+| `NamedApiResource`, `ApiResource` | Referências a outros recursos; getter `id` extraído da URL |
+| `ResourceList<T>` | Lista paginada (`count`, `next`, `previous`, `results`, `hasNext`) |
+| `Name`, `Description`, `Effect`, `VerboseEffect`, `FlavorText`, `Genus` | Textos por idioma; implementam `Localized` |
+| `list.localized()` | Primeiro item em pt-br, senão en, senão `null` |
+| `list.localizedLast()` | Último item em pt-br, senão en (ideal para `flavor_text_entries`) |
+| `FlavorText.clean`, `cleanFlavor()`, `cleanEffect()` | Limpam `\n` e marcações (`[X]{mechanic:Y}`, `$effect_chance`) |
+| `idFromUrl(url)` | Extrai o ID do final da URL |
+| `pokemonSpriteUrl(id)` | Monta a URL do sprite por ID (sem chamar a API) |
+| `damageTakenMultipliers(types)` | Fraquezas/resistências para 1–2 tipos |
+
+---
+
+## 6.5 Atalhos prontos nos modelos
+
+| Onde | Membro | Retorna | Tela |
+|---|---|---|---|
+| `Pokemon` | `heightMeters`, `weightKg` | Altura em m, peso em kg | Detalhe |
+| `Pokemon` | `baseStat('speed')`, `baseStatTotal` | Stat individual e soma dos 6 stats | Detalhe |
+| `Pokemon` | `imageUrl` | Arte oficial → sprite → URL por ID | Detalhe |
+| `PokemonSpecies` | `displayName()`, `description()`, `genus()` | Nome, descrição e categoria traduzidos | Detalhe |
+| `PokemonSpecies` | `femalePercent`, `malePercent` | Proporção de gênero (`null` se sem gênero) | Detalhe |
+| `PokeType` / `Ability` / `Move` | `displayName()` | Nome traduzido | Extras |
+| `Ability` / `Move` | `shortEffect()` | Efeito curto traduzido e limpo | Extras |
+| `ChainLink` | `flatten()` | Lista plana da árvore de evolução | Detalhe |
+| `EvolutionDetail` | `summary` | Texto curto ("Nível 16", "Item: fire-stone") | Detalhe |
+
+---
+
+## 6.6 Encadeamento entre telas
+
+Das respostas anteriores saem as URLs das próximas chamadas:
+
+```
+/pokemon?limit&offset          → name, url (ID na url)
+                                       │
+                                       ▼
+/pokemon/{id}                  → tipos, stats, sprites
+   ├── species.url             → /pokemon-species/{id}   (nomes pt-br, descrição)
+   │                                 └── evolution_chain.url → /evolution-chain/{id}  (árvore)
+   ├── types[].type.url        → /type/{id}      (fraquezas, nome pt-br)
+   ├── moves[].move.url        → /move/{id}      (poder, pp, nome pt-br)
+   └── abilities[].ability.url → /ability/{id}   (nome pt-br, efeito)
+```
+
+**Legenda:**
+- Setas: siga a `url` dentro da resposta anterior.
+- Sprite por ID (não é a API): `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png`
 ---
 
 ## 7. Fluxo por tela
