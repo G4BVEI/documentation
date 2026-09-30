@@ -639,8 +639,7 @@ for (final r in page.results) {
 ---
 
 ## 7. Fluxo por tela
-
-![[Pasted image 20260930170014.png]]
+![Logo](image.png)
 
 ---
 
